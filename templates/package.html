@@ -1,0 +1,111 @@
+{{template "head" .}}
+<div class="app">
+  {{template "sidebar" .}}
+  <div class="content">
+    {{template "topbar" .}}
+    <div class="pkg-layout">
+      <main class="pkg-main">
+        <div class="pkg-head">
+          <h1><code>{{.Package.ImportPath}}</code></h1>
+          <div class="pkg-meta">
+            {{if .Package.Generated}}Generated overview{{else}}Guided tour{{end}} · {{.Package.Category}} ·
+            <a href="https://pkg.go.dev/{{.Package.ImportPath}}" target="_blank" rel="noopener">pkg.go.dev →</a>
+          </div>
+          {{if .Package.HasAdvisories}}
+          <div class="advisories">
+            {{range .Package.Advisories}}
+            <div class="advisory advisory-{{.Kind}}">
+              <strong>{{.Label}}</strong>
+              <span>{{.Message}}</span>
+            </div>
+            {{end}}
+          </div>
+          {{end}}
+          <p class="lede">{{.Package.Summary}}</p>
+        </div>
+
+        {{if or .Package.HasTLDR .Package.HasCheatsheet}}
+        <section class="cheat" id="cheatsheet">
+          {{if .Package.HasTLDR}}<p class="cheat-tldr">{{.Package.TLDR}}</p>{{end}}
+          {{if .Package.HasCheatsheet}}
+          <div class="cheat-rows">
+            {{range .Package.Cheatsheet}}
+            <div class="cheat-row">
+              <div class="cheat-task">{{.Task}}</div>
+              <pre class="cheat-code"><code class="language-go">{{.Code}}</code></pre>
+            </div>
+            {{end}}
+          </div>
+          {{end}}
+        </section>
+        {{end}}
+
+        {{range .Sections}}
+          <section class="sect" id="{{.Anchor}}">
+            <h2>{{.Title}}</h2>
+            {{if .Collapsible}}
+            <details class="section-details"{{if .Open}} open{{end}}>
+              <summary>Contents ({{.ItemCount}} items)</summary>
+              <div class="section-body">
+                {{if .Description}}<p class="desc">{{.Description}}</p>{{end}}
+                {{range .Examples}}
+                  <article class="ex" id="{{.Anchor}}">
+                    <h3>{{.Title}}</h3>
+                    {{if .Notes}}<p class="notes">{{.Notes}}</p>{{end}}
+                    <pre class="code-block"><code class="language-{{if .Language}}{{.Language}}{{else}}go{{end}}">{{.Code}}</code></pre>
+                    {{if .Output}}
+                    <div class="out-label">Output</div>
+                    <pre class="output"><code class="language-none">{{.Output}}</code></pre>
+                    {{end}}
+                  </article>
+                {{end}}
+              </div>
+            </details>
+            {{else}}
+            <div class="section-body">
+              {{if .Description}}<p class="desc">{{.Description}}</p>{{end}}
+              {{range .Examples}}
+                <article class="ex" id="{{.Anchor}}">
+                  <h3>{{.Title}}</h3>
+                  {{if .Notes}}<p class="notes">{{.Notes}}</p>{{end}}
+                  <pre class="code-block"><code class="language-{{if .Language}}{{.Language}}{{else}}go{{end}}">{{.Code}}</code></pre>
+                  {{if .Output}}
+                  <div class="out-label">Output</div>
+                  <pre class="output"><code class="language-none">{{.Output}}</code></pre>
+                  {{end}}
+                </article>
+              {{end}}
+            </div>
+            {{end}}
+          </section>
+        {{end}}
+      </main>
+      {{if .HasTOC}}
+      <aside class="page-toc">
+        <div class="page-toc-inner">
+          <div class="page-toc-title">On this page</div>
+          <ul class="page-toc-list">
+            {{if or .Package.HasTLDR .Package.HasCheatsheet}}
+            <li><a href="#cheatsheet" class="page-toc-section">TL;DR</a></li>
+            {{end}}
+            {{range .TOC}}
+            <li>
+              <a href="#{{.Anchor}}" class="page-toc-section">{{.Title}}{{if .ItemCount}} <span>{{.ItemCount}}</span>{{end}}</a>
+              {{if .Items}}
+              <ul class="page-toc-items">
+                {{range .Items}}
+                <li><a href="#{{.Anchor}}">{{.Title}}</a></li>
+                {{end}}
+              </ul>
+              {{end}}
+            </li>
+            {{end}}
+          </ul>
+        </div>
+      </aside>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{template "search-palette" .}}
+{{template "foot" .}}

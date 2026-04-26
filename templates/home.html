@@ -1,0 +1,60 @@
+{{template "head" .}}
+<div class="app">
+  {{template "sidebar" .}}
+  <main class="content">
+    {{template "topbar" .}}
+    <section class="hero">
+      <h1>The Go standard library, learnable in an afternoon.</h1>
+      <p class="lede">A tour of every public stdlib package — what it's for, when to reach for it, the shape of the API, and the gotchas. Hand-written for the packages you'll actually use; auto-generated reference for the rest. <strong>{{.Coverage.Total}}</strong> packages covered.</p>
+      <div class="hero-actions">
+        <button type="button" class="btn-search-trigger" data-open-search>
+          <span class="search-icon">⌕</span>
+          <span class="search-text">Search packages, sections, recipes…</span>
+          <kbd>⌘K</kbd>
+        </button>
+        <a class="btn-primary" href="/recipes">How do I…?</a>
+      </div>
+    </section>
+
+    {{if .StartHere}}
+    <section class="curriculum">
+      <h2>Start here</h2>
+      <p class="section-lede">If you're new to Go, learn these in this order. They cover almost everything a real program needs.</p>
+      <ol class="curriculum-list">
+        {{range $i, $e := .StartHere}}
+        <li>
+          <a class="curriculum-item" href="/pkg/{{.Pkg}}">
+            <span class="curriculum-step">{{add $i 1}}</span>
+            <span class="curriculum-body">
+              <span class="curriculum-pkg">{{.Pkg}}</span>
+              <span class="curriculum-why">{{.OneLine}}</span>
+              <span class="curriculum-try">Try: {{.NextStep}}</span>
+            </span>
+          </a>
+        </li>
+        {{end}}
+      </ol>
+    </section>
+    {{end}}
+
+    <section class="overview-all">
+      <h2>Browse by category</h2>
+      <p class="section-lede">{{.Coverage.Curated}} hand-written guides · {{.Coverage.Generated}} auto-generated overviews. Packages flagged <span class="inline-badge">deprecated</span>, <span class="inline-badge">insecure</span>, or <span class="inline-badge">frozen</span> are clearly marked.</p>
+      {{range .Categories}}
+        <section class="overview">
+          <h3>{{.Name}}</h3>
+          <div class="grid">
+          {{range .Packages}}
+            <a class="card" href="/pkg/{{.Name}}">
+              <div class="card-name">{{.ImportPath}}{{with .PrimaryAdvisory}} <span class="inline-badge inline-badge-{{.Kind}}">{{.Label}}</span>{{end}}</div>
+              <div class="card-summary">{{.Summary}}</div>
+            </a>
+          {{end}}
+          </div>
+        </section>
+      {{end}}
+    </section>
+  </main>
+</div>
+{{template "search-palette" .}}
+{{template "foot" .}}

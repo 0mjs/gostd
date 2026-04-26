@@ -1,0 +1,52 @@
+{{template "head" .}}
+<div class="app">
+  {{template "sidebar" .}}
+  <main class="content">
+    {{template "topbar" .}}
+    <div class="recipes-layout">
+      <div class="recipes-main">
+        <header class="pkg-head">
+          <h1>How do I…?</h1>
+          <p class="lede">Task-oriented index. Each recipe is a real question paired with the smallest Go that answers it, and a link to the package it comes from. Use ⌘K to jump to one by name.</p>
+        </header>
+
+        {{range .Recipes}}
+          {{$group := .Name}}
+          <section class="recipe-group">
+            <h2 id="group-{{.Name}}">{{.Name}}</h2>
+            <div class="recipe-list">
+              {{range .Recipes}}
+                {{$anchor := index $.RecipeAnch .Title}}
+                <article class="recipe" id="{{$anchor}}">
+                  <div class="recipe-head">
+                    <h3>How do I {{.Title}}?</h3>
+                    <div class="recipe-pkgs">
+                      {{range .Pkgs}}<a href="/pkg/{{.}}" class="recipe-pkg-tag"><code>{{.}}</code></a>{{end}}
+                    </div>
+                  </div>
+                  {{if .Notes}}<p class="recipe-notes">{{.Notes}}</p>{{end}}
+                  <pre class="code-block"><code class="language-go">{{.Code}}</code></pre>
+                </article>
+              {{end}}
+            </div>
+          </section>
+        {{end}}
+      </div>
+
+      <aside class="page-toc">
+        <div class="page-toc-inner">
+          <div class="page-toc-title">Categories</div>
+          <ul class="page-toc-list">
+            {{range .Recipes}}
+            <li>
+              <a href="#group-{{.Name}}" class="page-toc-section">{{.Name}} <span>{{len .Recipes}}</span></a>
+            </li>
+            {{end}}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+{{template "search-palette" .}}
+{{template "foot" .}}

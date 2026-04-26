@@ -1,0 +1,261 @@
+{{define "head"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
+<link rel="stylesheet" href="/static/style.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-go.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</head>
+<body>
+{{end}}
+
+{{define "sidebar"}}
+<aside class="sidebar">
+  <a class="brand" href="/">Go stdlib</a>
+  <nav class="sidebar-nav">
+    <a class="sidebar-link{{if eq .ActiveNav "home"}} active{{end}}" href="/">Overview</a>
+    <a class="sidebar-link{{if eq .ActiveNav "recipes"}} active{{end}}" href="/recipes">How do I…?</a>
+    <button type="button" class="sidebar-link sidebar-search" data-open-search>
+      <span>Search</span><kbd>⌘K</kbd>
+    </button>
+  </nav>
+  <nav class="sidebar-pkgs">
+  {{range .Categories}}
+    <div class="cat">{{.Name}}</div>
+    <ul>
+    {{range .Packages}}
+      <li><a href="/pkg/{{.Name}}"{{if eq $.ActivePkg .Name}} class="active"{{end}}>
+        <span class="nav-label">{{.Name}}</span>
+        {{with .PrimaryAdvisory}}<span class="nav-badge nav-badge-{{.Kind}}">{{.Label}}</span>{{end}}
+      </a></li>
+    {{end}}
+    </ul>
+  {{end}}
+  </nav>
+</aside>
+{{end}}
+
+{{define "topbar"}}
+<div class="topbar">
+  <button type="button" class="topbar-search" data-open-search>
+    <span class="search-icon">⌕</span>
+    <span class="search-text">Search packages, sections, recipes…</span>
+    <kbd>⌘K</kbd>
+  </button>
+</div>
+{{end}}
+
+{{define "search-palette"}}
+<div class="palette" id="palette" aria-hidden="true">
+  <div class="palette-backdrop" data-close-search></div>
+  <div class="palette-box" role="dialog" aria-label="Search">
+    <input class="palette-input" id="palette-input" type="text"
+           placeholder="Type to search packages, sections, examples, recipes…"
+           autocomplete="off" spellcheck="false">
+    <div class="palette-results" id="palette-results" role="listbox"></div>
+    <div class="palette-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> open</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "foot"}}
+<script>
+(function () {
+  // -------- open hash target inside <details> after navigation --------
+  function openHashTarget() {
+    if (!window.location.hash) return;
+    var id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    var target = document.getElementById(id);
+    if (!target) return;
+    var details = target.closest("details.section-details");
+    if (!details && target.matches && target.matches(".sect")) {
+      details = target.querySelector("details.section-details");
+    }
+    if (details) details.open = true;
+  }
+  document.addEventListener("DOMContentLoaded", openHashTarget);
+  window.addEventListener("hashchange", openHashTarget);
+
+  // -------- copy-code buttons on every <pre.code-block> --------
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("pre.code-block, pre.cheat-code").forEach(function (pre) {
+      if (pre.querySelector(".copy-btn")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "copy-btn";
+      btn.textContent = "copy";
+      btn.addEventListener("click", function () {
+        var code = pre.querySelector("code");
+        var text = code ? code.innerText : pre.innerText;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = "copied";
+          setTimeout(function () { btn.textContent = "copy"; }, 1200);
+        });
+      });
+      pre.appendChild(btn);
+    });
+  });
+
+  // -------- cmd+k search palette --------
+  var palette = document.getElementById("palette");
+  var input = document.getElementById("palette-input");
+  var results = document.getElementById("palette-results");
+  var index = null;
+  var indexPromise = null;
+  var selected = 0;
+  var current = [];
+
+  function loadIndex() {
+    if (indexPromise) return indexPromise;
+    indexPromise = fetch("/search.json")
+      .then(function (r) { return r.json(); })
+      .then(function (data) { index = data; return data; })
+      .catch(function () { indexPromise = null; });
+    return indexPromise;
+  }
+
+  function openPalette() {
+    palette.setAttribute("aria-hidden", "false");
+    document.body.classList.add("palette-open");
+    loadIndex().then(function () { render(input.value); });
+    setTimeout(function () { input.focus(); input.select(); }, 0);
+  }
+
+  function closePalette() {
+    palette.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("palette-open");
+  }
+
+  function score(entry, q) {
+    if (!q) return 0;
+    var name = entry.n, detail = entry.d || "", kind = entry.k;
+    var hay = (name + " " + detail).toLowerCase();
+    var needle = q.toLowerCase();
+    if (name.toLowerCase() === needle) return 1000;
+    if (name.toLowerCase().startsWith(needle)) return 500;
+    if (hay.indexOf(needle) >= 0) {
+      var base = 100 - Math.min(50, name.length);
+      if (kind === "pkg") base += 40;
+      if (kind === "recipe") base += 20;
+      return base;
+    }
+    // loose subsequence fallback
+    var hi = 0;
+    for (var i = 0; i < needle.length; i++) {
+      var c = needle.charAt(i);
+      var found = hay.indexOf(c, hi);
+      if (found < 0) return 0;
+      hi = found + 1;
+    }
+    return 10;
+  }
+
+  function render(q) {
+    if (!index) {
+      results.innerHTML = '<div class="palette-empty">loading…</div>';
+      return;
+    }
+    q = (q || "").trim();
+    var ranked = [];
+    if (!q) {
+      // empty: show kind=pkg + recipes, alphabetical
+      ranked = index.filter(function (e) { return e.k === "pkg" || e.k === "recipe"; });
+    } else {
+      ranked = index
+        .map(function (e) { return { e: e, s: score(e, q) }; })
+        .filter(function (x) { return x.s > 0; })
+        .sort(function (a, b) { return b.s - a.s; })
+        .slice(0, 60)
+        .map(function (x) { return x.e; });
+    }
+
+    current = ranked;
+    selected = 0;
+
+    if (ranked.length === 0) {
+      results.innerHTML = '<div class="palette-empty">no matches</div>';
+      return;
+    }
+
+    var html = "";
+    for (var i = 0; i < ranked.length; i++) {
+      var e = ranked[i];
+      html += '<a class="palette-row' + (i === 0 ? ' selected' : '') + '" href="' + e.u + '" data-idx="' + i + '">'
+            +   '<span class="palette-kind palette-kind-' + e.k + '">' + e.k + '</span>'
+            +   '<span class="palette-name">' + escapeHTML(e.n) + '</span>'
+            +   (e.d ? '<span class="palette-detail">' + escapeHTML(e.d) + '</span>' : '')
+            + '</a>';
+    }
+    results.innerHTML = html;
+  }
+
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function move(delta) {
+    if (!current.length) return;
+    selected = (selected + delta + current.length) % current.length;
+    var rows = results.querySelectorAll(".palette-row");
+    rows.forEach(function (row, i) {
+      row.classList.toggle("selected", i === selected);
+      if (i === selected) row.scrollIntoView({ block: "nearest" });
+    });
+  }
+
+  function activate() {
+    var rows = results.querySelectorAll(".palette-row");
+    if (rows[selected]) {
+      window.location.href = rows[selected].getAttribute("href");
+      closePalette();
+    }
+  }
+
+  document.addEventListener("keydown", function (e) {
+    var open = palette.getAttribute("aria-hidden") === "false";
+    var isMod = e.metaKey || e.ctrlKey;
+    if (isMod && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      open ? closePalette() : openPalette();
+      return;
+    }
+    if (!open && e.key === "/" && !/^(input|textarea|select)$/i.test((e.target.tagName || ""))) {
+      e.preventDefault();
+      openPalette();
+      return;
+    }
+    if (!open) return;
+    if (e.key === "Escape") { e.preventDefault(); closePalette(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+    else if (e.key === "Enter") { e.preventDefault(); activate(); }
+  });
+
+  if (input) input.addEventListener("input", function () { render(input.value); });
+
+  document.querySelectorAll("[data-open-search]").forEach(function (el) {
+    el.addEventListener("click", function (e) { e.preventDefault(); openPalette(); });
+  });
+  document.querySelectorAll("[data-close-search]").forEach(function (el) {
+    el.addEventListener("click", function (e) { e.preventDefault(); closePalette(); });
+  });
+  if (results) results.addEventListener("click", function (e) {
+    var a = e.target.closest(".palette-row");
+    if (a) closePalette();
+  });
+})();
+</script>
+</body>
+</html>
+{{end}}
