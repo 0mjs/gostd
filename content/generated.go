@@ -33,6 +33,15 @@ func EnsureGeneratedPackages() (CoverageStats, error) {
 	ensureOnce.Do(func() {
 		curated := len(registry)
 		root := filepath.Join(runtime.GOROOT(), "src")
+		if _, err := os.Stat(root); err != nil {
+			if os.IsNotExist(err) {
+				ensureStats.Curated = curated
+				ensureStats.Total = len(registry)
+				return
+			}
+			ensureErr = err
+			return
+		}
 		importCounts, err := scanStdImportCounts(root)
 		if err != nil {
 			ensureErr = err
