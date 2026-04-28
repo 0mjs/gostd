@@ -2,6 +2,8 @@
 
 An opinionated, searchable tour of the Go standard library: curated guides for the packages you will actually use, generated reference for the rest.
 
+Try it out, [here](https://gostd.up.railway.app/)
+
 ## What it is
 
 `gostd` is a small Go web app that turns the standard library into a browsable learning resource.
